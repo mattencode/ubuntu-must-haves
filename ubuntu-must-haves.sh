@@ -4,13 +4,14 @@
 # Ubuntu Must-Have Applications Installer
 # 
 # This script installs essential applications for Ubuntu:
+# - Google Chrome (web browser)
 # - LibreOffice (office suite)
 # - Visual Studio Code (code editor)
 # - VLC Media Player (video player)
 # - Remmina (remote desktop client)
 # - Spotify (music streaming)
 #
-# Usage: bash install-apps.sh
+# Usage: bash ubuntu-must-haves.sh
 ###############################################################################
 
 set -e  # Exit on error
@@ -45,9 +46,59 @@ echo "Ubuntu Must-Have Applications Installer"
 echo "=========================================="
 echo ""
 
+# Ask user about Chrome installation
+echo ""
+echo "Google Chrome installation requires adding third-party repositories (extrepo)."
+read -p "Do you want to install Google Chrome? (y/n): " install_chrome
+echo ""
+
 # Update package lists
 print_info "Updating package lists..."
 sudo apt update
+
+# Install Google Chrome if user wants it
+if [[ "$install_chrome" =~ ^[Yy]$ ]]; then
+    # Install prerequisites for Chrome
+    print_info "Installing prerequisites for Chrome..."
+    if sudo apt install -y ca-certificates curl extrepo; then
+        print_status "Prerequisites installed successfully"
+    else
+        print_error "Failed to install prerequisites"
+    fi
+
+    # Install Google Chrome via extrepo
+    print_info "Installing Google Chrome..."
+
+    # Enable non-free policy for extrepo
+    if sudo sed -i 's/^# - non-free$/- non-free/' /etc/extrepo/config.yaml 2>/dev/null; then
+        print_status "Non-free policy enabled"
+    else
+        print_info "Non-free policy already enabled or config not found"
+    fi
+
+    # Enable Google Chrome repository
+    if sudo extrepo enable google_chrome 2>/dev/null; then
+        print_status "Chrome repository enabled"
+        
+        # Update package lists again
+        sudo apt update
+        
+        # Install Chrome
+        if sudo apt install -y google-chrome-stable; then
+            print_status "Google Chrome installed successfully"
+            
+            # Remove duplicate repository files
+            sudo rm -f /etc/apt/sources.list.d/google-chrome*.list 2>/dev/null
+            print_status "Cleaned up duplicate repository files"
+        else
+            print_error "Failed to install Google Chrome"
+        fi
+    else
+        print_error "Failed to enable Chrome repository"
+    fi
+else
+    print_info "Skipping Google Chrome installation"
+fi
 
 # Install LibreOffice
 print_info "Installing LibreOffice..."
@@ -100,10 +151,13 @@ print_status "Installation complete!"
 echo "=========================================="
 echo ""
 echo "Installed applications:"
+if [[ "$install_chrome" =~ ^[Yy]$ ]]; then
+    echo "  • Google Chrome"
+fi
 echo "  • LibreOffice"
 echo "  • Visual Studio Code"
 echo "  • VLC Media Player"
 echo "  • Remmina"
 echo "  • Spotify"
 echo ""
-echo "You can now launch these applications."
+echo "You can now launch these applications from your application menu."
