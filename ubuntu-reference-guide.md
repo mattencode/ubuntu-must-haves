@@ -192,22 +192,22 @@ Install essential applications all at once with a single script from GitHub. The
 LibreOffice, VLC, and Remmina are installed automatically via apt.
 
 > **⚠️ Security Warning:** Always review scripts before running them! You can view the script contents at:  
-> https://github.com/aweijs64/ubuntu-must-haves/blob/main/ubuntu-must-haves.sh  
+> https://github.com/mattencode/ubuntu-must-haves/blob/main/ubuntu-must-haves.sh  
 > Never blindly execute scripts from the internet without checking what they do first.
 
 ```bash
 # Download and run in one command
-bash <(wget -qO- https://raw.githubusercontent.com/aweijs64/ubuntu-must-haves/main/ubuntu-must-haves.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/mattencode/ubuntu-must-haves/main/ubuntu-must-haves.sh)
 ```
 
 Or download first, review it, then run:
 ```bash
-wget https://raw.githubusercontent.com/aweijs64/ubuntu-must-haves/main/ubuntu-must-haves.sh
+wget https://raw.githubusercontent.com/mattencode/ubuntu-must-haves/main/ubuntu-must-haves.sh
 cat ubuntu-must-haves.sh  # Review the script first!
 bash ubuntu-must-haves.sh
 ```
 
-For more details, visit the repository: https://github.com/aweijs64/ubuntu-must-haves
+For more details, visit the repository: https://github.com/mattencode/ubuntu-must-haves
 
 ---
 
