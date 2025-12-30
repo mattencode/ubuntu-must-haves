@@ -9,18 +9,18 @@ Quick setup scripts and reference guide for Ubuntu systems.
 Install essential applications with one command. The script checks what's already installed, then asks about optional components before proceeding:
 
 ```bash
-bash <(wget -qO- https://raw.githubusercontent.com/aweijs64/ubuntu-must-haves/main/ubuntu-must-haves.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/mattencode/ubuntu-must-haves/main/ubuntu-must-haves.sh)
 ```
 
 Or download and run:
 ```bash
-wget https://raw.githubusercontent.com/aweijs64/ubuntu-must-haves/main/ubuntu-must-haves.sh
+wget https://raw.githubusercontent.com/mattencode/ubuntu-must-haves/main/ubuntu-must-haves.sh
 bash ubuntu-must-haves.sh
 ```
 
 **What it installs:**
 - **Google Chrome** - Web browser (optional - requires third-party repo)
-  - *Note:* Installing Chrome requires adding Google's repository via **extrepo**, Ubuntu's external repository management tool. Extrepo safely manages third-party software sources by handling GPG keys and repository configurations automatically. The script will prompt you before making any changes. Using the Google repository instead of simply downloading and installing a .deb makes it easier to update Google Chrome in the future.
+  - *Note:* Installing Chrome requires adding Google's repository via **extrepo**, Ubuntu's external repository management tool. Extrepo safely manages third-party software sources by handling GPG keys and repository configurations automatically. The script will prompt you before making any changes.
 - **LibreOffice** - Full office suite (Writer, Calc, Impress, etc.)
 - **Visual Studio Code** - Modern code editor (optional - installed via snap)
 - **VLC Media Player** - Versatile media player
@@ -50,7 +50,7 @@ The script uses Snap for VS Code and Spotify for easier updates and sandboxing. 
 
 ### About Third-Party Repositories
 
-Google Chrome installation uses extrepo (External Repository Tool), which is Ubuntu's recommended way to manage third-party software sources. Extrepo:
+**Google Chrome** installation uses **extrepo** (External Repository Tool), which is Ubuntu's recommended way to manage third-party software sources. Extrepo:
 - Automatically handles GPG key imports for package verification
 - Creates properly configured repository files
 - Maintains security by ensuring packages are cryptographically signed
