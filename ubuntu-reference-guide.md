@@ -185,7 +185,11 @@ Keep only the extrepo-managed `.sources` file.
 
 ### Quick Install (Recommended)
 
-Install essential applications all at once with a single script from GitHub. The script will prompt you to choose whether to install Google Chrome, then automatically installs LibreOffice, VS Code, VLC, Remmina, and Spotify:
+Install essential applications all at once with a single script from GitHub. The script checks what's already installed, then prompts you for optional components:
+- **Google Chrome** - requires third-party repository
+- **Snap-based apps** (VS Code & Spotify) - use 'classic' confinement
+
+LibreOffice, VLC, and Remmina are installed automatically via apt.
 
 > **⚠️ Security Warning:** Always review scripts before running them! You can view the script contents at:  
 > https://github.com/aweijs64/ubuntu-must-haves/blob/main/ubuntu-must-haves.sh  
