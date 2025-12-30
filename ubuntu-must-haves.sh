@@ -14,13 +14,11 @@
 # Usage: bash ubuntu-must-haves.sh
 ###############################################################################
 
-# Removed: set -e
-# We want to continue installing other apps even if one fails
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
@@ -34,6 +32,10 @@ print_error() {
 
 print_info() {
     echo -e "${YELLOW}[i]${NC} $1"
+}
+
+print_header() {
+    echo -e "${BLUE}$1${NC}"
 }
 
 # Check if running as root
@@ -50,106 +52,183 @@ vlc_installed=false
 remmina_installed=false
 spotify_installed=false
 
+# Track which apps were already installed
+chrome_skipped=false
+libreoffice_skipped=false
+vscode_skipped=false
+vlc_skipped=false
+remmina_skipped=false
+spotify_skipped=false
+
 echo "=========================================="
 echo "Ubuntu Must-Have Applications Installer"
 echo "=========================================="
 echo ""
 
+# Show what will be installed
+print_header "This script will install the following applications:"
+echo "  • Google Chrome     (web browser, optional - requires third-party repo)"
+echo "  • LibreOffice       (office suite, from apt)"
+echo "  • Visual Studio Code (code editor, from snap)"
+echo "  • VLC Media Player  (video player, from apt)"
+echo "  • Remmina           (remote desktop client, from apt)"
+echo "  • Spotify           (music streaming, from snap)"
+echo ""
+print_info "Note: VS Code and Spotify use snap with 'classic' confinement,"
+print_info "which gives them broader system access than regular snaps."
+echo ""
+
+read -p "Do you want to continue? (y/n): " continue_install
+if [[ ! "$continue_install" =~ ^[Yy]$ ]]; then
+    print_info "Installation cancelled."
+    exit 0
+fi
+
 # Ask user about Chrome installation
 echo ""
-echo "Google Chrome installation requires adding third-party repositories (extrepo)."
+print_info "Google Chrome installation requires adding third-party repositories (extrepo)."
 read -p "Do you want to install Google Chrome? (y/n): " install_chrome
 echo ""
 
 # Update package lists
 print_info "Updating package lists..."
-if ! sudo apt update; then
+if ! sudo apt-get update -qq; then
     print_error "Failed to update package lists. Check your internet connection."
     exit 1
 fi
+print_status "Package lists updated"
 
 # Check if snapd is available (needed for VS Code and Spotify)
-if ! command -v snap &> /dev/null; then
+snapd_available=false
+if command -v snap &> /dev/null; then
+    snapd_available=true
+else
     print_info "Snapd not found. Installing snapd..."
-    if sudo apt install -y snapd; then
+    if sudo apt-get install -y -qq snapd; then
         print_status "Snapd installed successfully"
+        
+        # Enable and start snapd socket
+        print_info "Enabling snapd service..."
+        sudo systemctl enable --now snapd.socket
+        
+        # Create symlink for classic snap support
+        if [ ! -e /snap ]; then
+            sudo ln -s /var/lib/snapd/snap /snap
+        fi
+        
+        # Wait for snapd to be ready
+        print_info "Waiting for snapd to initialize..."
+        sleep 5
+        
+        # Verify snap is working
+        if sudo snap wait system seed.loaded 2>/dev/null; then
+            snapd_available=true
+            print_status "Snapd is ready"
+        else
+            # Fallback: just wait a bit more and hope for the best
+            sleep 5
+            if command -v snap &> /dev/null; then
+                snapd_available=true
+                print_status "Snapd appears ready"
+            else
+                print_error "Snapd initialization failed. VS Code and Spotify will be skipped."
+            fi
+        fi
     else
         print_error "Failed to install snapd. VS Code and Spotify will be skipped."
     fi
 fi
 
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# Function to check if a snap is installed
+snap_installed() {
+    snap list "$1" &> /dev/null 2>&1
+}
+
+echo ""
+print_header "Installing applications..."
+echo ""
+
 # Install Google Chrome if user wants it
 if [[ "$install_chrome" =~ ^[Yy]$ ]]; then
-    # Install prerequisites for Chrome
-    print_info "Installing prerequisites for Chrome..."
-    if sudo apt install -y ca-certificates curl extrepo; then
-        print_status "Prerequisites installed successfully"
+    if command_exists google-chrome || command_exists google-chrome-stable; then
+        print_info "Google Chrome is already installed, skipping"
+        chrome_skipped=true
+        chrome_installed=true
     else
-        print_error "Failed to install prerequisites"
-    fi
+        # Install prerequisites for Chrome
+        print_info "Installing prerequisites for Chrome..."
+        if sudo apt-get install -y -qq ca-certificates curl extrepo; then
+            print_status "Prerequisites installed"
+        else
+            print_error "Failed to install prerequisites"
+        fi
 
-    # Install Google Chrome via extrepo
-    print_info "Installing Google Chrome..."
+        # Install Google Chrome via extrepo
+        print_info "Installing Google Chrome..."
 
-    # Enable non-free policy for extrepo (more robust approach)
-    if [ -f /etc/extrepo/config.yaml ]; then
-        # Check if non-free is already enabled
-        if grep -q "^- non-free" /etc/extrepo/config.yaml; then
-            print_info "Non-free policy already enabled"
-        elif grep -q "^# - non-free" /etc/extrepo/config.yaml || grep -q "^#- non-free" /etc/extrepo/config.yaml; then
-            # Try to enable it (handles various comment formats)
-            if sudo sed -i 's/^#[[:space:]]*-[[:space:]]*non-free/- non-free/' /etc/extrepo/config.yaml; then
-                print_status "Non-free policy enabled"
+        # Enable non-free policy for extrepo
+        if [ -f /etc/extrepo/config.yaml ]; then
+            # Use grep + sed with multiple pattern attempts
+            if ! grep -qE "^-[[:space:]]*non-free" /etc/extrepo/config.yaml; then
+                # Try to uncomment non-free line (handles various formats)
+                sudo sed -i -E 's/^#[[:space:]]*(-[[:space:]]*non-free)/\1/' /etc/extrepo/config.yaml 2>/dev/null
+            fi
+        fi
+
+        # Enable Google Chrome repository
+        if sudo extrepo enable google_chrome 2>/dev/null; then
+            print_status "Chrome repository enabled"
+            
+            # Update package lists again
+            sudo apt-get update -qq
+            
+            # Install Chrome
+            if sudo apt-get install -y -qq google-chrome-stable; then
+                print_status "Google Chrome installed successfully"
+                chrome_installed=true
+                
+                # Remove duplicate .list files created by Chrome's postinstall script
+                # Extrepo uses .sources format, Chrome's installer creates .list files
+                sudo rm -f /etc/apt/sources.list.d/google-chrome*.list 2>/dev/null
             else
-                print_error "Failed to enable non-free policy"
+                print_error "Failed to install Google Chrome"
             fi
         else
-            print_info "Non-free policy not found in config, extrepo will handle it"
+            print_error "Failed to enable Chrome repository"
+            print_info "You can install Chrome manually from https://www.google.com/chrome/"
         fi
-    else
-        print_info "Extrepo config not found, will attempt installation anyway"
-    fi
-
-    # Enable Google Chrome repository
-    if sudo extrepo enable google_chrome 2>/dev/null; then
-        print_status "Chrome repository enabled"
-        
-        # Update package lists again
-        if ! sudo apt update; then
-            print_error "Failed to update package lists after adding Chrome repository"
-        fi
-        
-        # Install Chrome
-        if sudo apt install -y google-chrome-stable; then
-            print_status "Google Chrome installed successfully"
-            chrome_installed=true
-            
-            # Remove duplicate .list files created by Chrome's postinstall script
-            # Extrepo uses .sources format, Chrome's installer creates .list files
-            sudo rm -f /etc/apt/sources.list.d/google-chrome*.list 2>/dev/null
-            print_status "Cleaned up duplicate repository files"
-        else
-            print_error "Failed to install Google Chrome"
-        fi
-    else
-        print_error "Failed to enable Chrome repository"
     fi
 else
     print_info "Skipping Google Chrome installation"
 fi
 
 # Install LibreOffice
-print_info "Installing LibreOffice..."
-if sudo apt install -y libreoffice; then
-    print_status "LibreOffice installed successfully"
+if command_exists libreoffice; then
+    print_info "LibreOffice is already installed, skipping"
+    libreoffice_skipped=true
     libreoffice_installed=true
 else
-    print_error "Failed to install LibreOffice"
+    print_info "Installing LibreOffice..."
+    if sudo apt-get install -y -qq libreoffice; then
+        print_status "LibreOffice installed successfully"
+        libreoffice_installed=true
+    else
+        print_error "Failed to install LibreOffice"
+    fi
 fi
 
-# Install Visual Studio Code (via Snap - easier and auto-updates)
-print_info "Installing Visual Studio Code..."
-if command -v snap &> /dev/null; then
+# Install Visual Studio Code (via Snap)
+if command_exists code || snap_installed code; then
+    print_info "Visual Studio Code is already installed, skipping"
+    vscode_skipped=true
+    vscode_installed=true
+elif [ "$snapd_available" = true ]; then
+    print_info "Installing Visual Studio Code..."
     if sudo snap install code --classic; then
         print_status "VS Code installed successfully"
         vscode_installed=true
@@ -161,26 +240,42 @@ else
 fi
 
 # Install VLC Media Player
-print_info "Installing VLC Media Player..."
-if sudo apt install -y vlc; then
-    print_status "VLC installed successfully"
+if command_exists vlc; then
+    print_info "VLC is already installed, skipping"
+    vlc_skipped=true
     vlc_installed=true
 else
-    print_error "Failed to install VLC"
+    print_info "Installing VLC Media Player..."
+    if sudo apt-get install -y -qq vlc; then
+        print_status "VLC installed successfully"
+        vlc_installed=true
+    else
+        print_error "Failed to install VLC"
+    fi
 fi
 
 # Install Remmina
-print_info "Installing Remmina..."
-if sudo apt install -y remmina; then
-    print_status "Remmina installed successfully"
+if command_exists remmina; then
+    print_info "Remmina is already installed, skipping"
+    remmina_skipped=true
     remmina_installed=true
 else
-    print_error "Failed to install Remmina"
+    print_info "Installing Remmina..."
+    if sudo apt-get install -y -qq remmina; then
+        print_status "Remmina installed successfully"
+        remmina_installed=true
+    else
+        print_error "Failed to install Remmina"
+    fi
 fi
 
-# Install Spotify (via Snap - easier and auto-updates)
-print_info "Installing Spotify..."
-if command -v snap &> /dev/null; then
+# Install Spotify (via Snap)
+if snap_installed spotify; then
+    print_info "Spotify is already installed, skipping"
+    spotify_skipped=true
+    spotify_installed=true
+elif [ "$snapd_available" = true ]; then
+    print_info "Installing Spotify..."
     if sudo snap install spotify; then
         print_status "Spotify installed successfully"
         spotify_installed=true
@@ -191,84 +286,121 @@ else
     print_error "Snapd not available, skipping Spotify installation"
 fi
 
-# Clean up
-print_info "Cleaning up..."
-sudo apt autoremove -y
-sudo apt autoclean
+# Clean up (only if something was installed)
+if [ "$chrome_skipped" = false ] || [ "$libreoffice_skipped" = false ] || \
+   [ "$vscode_skipped" = false ] || [ "$vlc_skipped" = false ] || \
+   [ "$remmina_skipped" = false ] || [ "$spotify_skipped" = false ]; then
+    echo ""
+    print_info "Cleaning up..."
+    sudo apt-get autoremove -y -qq
+    sudo apt-get autoclean -qq
+fi
 
 echo ""
 echo "=========================================="
 print_status "Installation complete!"
 echo "=========================================="
 echo ""
-echo "Successfully installed applications:"
-if [ "$chrome_installed" = true ]; then
-    echo "  • Google Chrome"
-fi
-if [ "$libreoffice_installed" = true ]; then
-    echo "  • LibreOffice"
-fi
-if [ "$vscode_installed" = true ]; then
-    echo "  • Visual Studio Code"
-fi
-if [ "$vlc_installed" = true ]; then
-    echo "  • VLC Media Player"
-fi
-if [ "$remmina_installed" = true ]; then
-    echo "  • Remmina"
-fi
-if [ "$spotify_installed" = true ]; then
-    echo "  • Spotify"
-fi
-echo ""
 
-# Show failed installations if any
+# Show results
+newly_installed=false
+already_installed=false
 failed=false
+
+# Collect newly installed
+newly=""
+if [ "$chrome_installed" = true ] && [ "$chrome_skipped" = false ]; then
+    newly+="  • Google Chrome\n"
+    newly_installed=true
+fi
+if [ "$libreoffice_installed" = true ] && [ "$libreoffice_skipped" = false ]; then
+    newly+="  • LibreOffice\n"
+    newly_installed=true
+fi
+if [ "$vscode_installed" = true ] && [ "$vscode_skipped" = false ]; then
+    newly+="  • Visual Studio Code\n"
+    newly_installed=true
+fi
+if [ "$vlc_installed" = true ] && [ "$vlc_skipped" = false ]; then
+    newly+="  • VLC Media Player\n"
+    newly_installed=true
+fi
+if [ "$remmina_installed" = true ] && [ "$remmina_skipped" = false ]; then
+    newly+="  • Remmina\n"
+    newly_installed=true
+fi
+if [ "$spotify_installed" = true ] && [ "$spotify_skipped" = false ]; then
+    newly+="  • Spotify\n"
+    newly_installed=true
+fi
+
+if [ "$newly_installed" = true ]; then
+    echo "Newly installed:"
+    echo -e "$newly"
+fi
+
+# Collect already installed
+already=""
+if [ "$chrome_skipped" = true ]; then
+    already+="  • Google Chrome\n"
+    already_installed=true
+fi
+if [ "$libreoffice_skipped" = true ]; then
+    already+="  • LibreOffice\n"
+    already_installed=true
+fi
+if [ "$vscode_skipped" = true ]; then
+    already+="  • Visual Studio Code\n"
+    already_installed=true
+fi
+if [ "$vlc_skipped" = true ]; then
+    already+="  • VLC Media Player\n"
+    already_installed=true
+fi
+if [ "$remmina_skipped" = true ]; then
+    already+="  • Remmina\n"
+    already_installed=true
+fi
+if [ "$spotify_skipped" = true ]; then
+    already+="  • Spotify\n"
+    already_installed=true
+fi
+
+if [ "$already_installed" = true ]; then
+    echo "Already installed (skipped):"
+    echo -e "$already"
+fi
+
+# Collect failures
+failures=""
 if [[ "$install_chrome" =~ ^[Yy]$ ]] && [ "$chrome_installed" = false ]; then
-    if [ "$failed" = false ]; then
-        echo "Failed to install:"
-        failed=true
-    fi
-    echo "  ✗ Google Chrome"
+    failures+="  ✗ Google Chrome\n"
+    failed=true
 fi
 if [ "$libreoffice_installed" = false ]; then
-    if [ "$failed" = false ]; then
-        echo "Failed to install:"
-        failed=true
-    fi
-    echo "  ✗ LibreOffice"
+    failures+="  ✗ LibreOffice\n"
+    failed=true
 fi
-if [ "$vscode_installed" = false ]; then
-    if [ "$failed" = false ]; then
-        echo "Failed to install:"
-        failed=true
-    fi
-    echo "  ✗ Visual Studio Code"
+if [ "$vscode_installed" = false ] && [ "$snapd_available" = true ]; then
+    failures+="  ✗ Visual Studio Code\n"
+    failed=true
 fi
 if [ "$vlc_installed" = false ]; then
-    if [ "$failed" = false ]; then
-        echo "Failed to install:"
-        failed=true
-    fi
-    echo "  ✗ VLC Media Player"
+    failures+="  ✗ VLC Media Player\n"
+    failed=true
 fi
 if [ "$remmina_installed" = false ]; then
-    if [ "$failed" = false ]; then
-        echo "Failed to install:"
-        failed=true
-    fi
-    echo "  ✗ Remmina"
+    failures+="  ✗ Remmina\n"
+    failed=true
 fi
-if [ "$spotify_installed" = false ]; then
-    if [ "$failed" = false ]; then
-        echo "Failed to install:"
-        failed=true
-    fi
-    echo "  ✗ Spotify"
+if [ "$spotify_installed" = false ] && [ "$snapd_available" = true ]; then
+    failures+="  ✗ Spotify\n"
+    failed=true
 fi
 
 if [ "$failed" = true ]; then
-    echo ""
+    echo "Failed to install:"
+    echo -e "$failures"
 fi
 
-echo "You can now launch these applications from your application menu."
+echo "You can launch these applications from your application menu."
