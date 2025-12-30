@@ -60,20 +60,99 @@ vlc_skipped=false
 remmina_skipped=false
 spotify_skipped=false
 
+# Function to check if a command exists
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# Function to check if a snap is installed
+snap_installed() {
+    snap list "$1" &> /dev/null 2>&1
+}
+
 echo "=========================================="
 echo "Ubuntu Must-Have Applications Installer"
 echo "=========================================="
 echo ""
 
+# Check what's already installed
+chrome_present=false
+libreoffice_present=false
+vscode_present=false
+vlc_present=false
+remmina_present=false
+spotify_present=false
+
+if command_exists google-chrome || command_exists google-chrome-stable; then
+    chrome_present=true
+fi
+if command_exists libreoffice; then
+    libreoffice_present=true
+fi
+if command_exists code || snap_installed code; then
+    vscode_present=true
+fi
+if command_exists vlc; then
+    vlc_present=true
+fi
+if command_exists remmina; then
+    remmina_present=true
+fi
+if snap_installed spotify; then
+    spotify_present=true
+fi
+
 # Show what will be installed
-print_header "This script will install the following applications:"
-echo "  • Google Chrome     (web browser, optional - requires third-party repo)"
-echo "  • LibreOffice       (office suite, from apt)"
-echo "  • Visual Studio Code (code editor, from snap)"
-echo "  • VLC Media Player  (video player, from apt)"
-echo "  • Remmina           (remote desktop client, from apt)"
-echo "  • Spotify           (music streaming, from snap)"
-echo ""
+to_install=""
+already_present=""
+
+if [ "$chrome_present" = false ]; then
+    to_install+="  • Google Chrome      (web browser, optional - requires third-party repo)\n"
+else
+    already_present+="  • Google Chrome\n"
+fi
+if [ "$libreoffice_present" = false ]; then
+    to_install+="  • LibreOffice        (office suite, from apt)\n"
+else
+    already_present+="  • LibreOffice\n"
+fi
+if [ "$vscode_present" = false ]; then
+    to_install+="  • Visual Studio Code (code editor, from snap)\n"
+else
+    already_present+="  • Visual Studio Code\n"
+fi
+if [ "$vlc_present" = false ]; then
+    to_install+="  • VLC Media Player   (video player, from apt)\n"
+else
+    already_present+="  • VLC Media Player\n"
+fi
+if [ "$remmina_present" = false ]; then
+    to_install+="  • Remmina            (remote desktop client, from apt)\n"
+else
+    already_present+="  • Remmina\n"
+fi
+if [ "$spotify_present" = false ]; then
+    to_install+="  • Spotify            (music streaming, from snap)\n"
+else
+    already_present+="  • Spotify\n"
+fi
+
+if [ -n "$to_install" ]; then
+    print_header "Will be installed:"
+    echo -e "$to_install"
+fi
+
+if [ -n "$already_present" ]; then
+    print_header "Already installed (will be skipped):"
+    echo -e "$already_present"
+fi
+
+# Check if everything is already installed
+if [ -z "$to_install" ]; then
+    print_status "All applications are already installed. Nothing to do."
+    exit 0
+fi
+
 print_info "Note: VS Code and Spotify use snap with 'classic' confinement,"
 print_info "which gives them broader system access than regular snaps."
 echo ""
@@ -84,10 +163,13 @@ if [[ ! "$continue_install" =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Ask user about Chrome installation
-echo ""
-print_info "Google Chrome installation requires adding third-party repositories (extrepo)."
-read -p "Do you want to install Google Chrome? (y/n): " install_chrome
+# Ask user about Chrome installation only if not already installed
+install_chrome="n"
+if [ "$chrome_present" = false ]; then
+    echo ""
+    print_info "Google Chrome installation requires adding third-party repositories (extrepo)."
+    read -p "Do you want to install Google Chrome? (y/n): " install_chrome
+fi
 echo ""
 
 # Update package lists
@@ -139,23 +221,13 @@ else
     fi
 fi
 
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" &> /dev/null
-}
-
-# Function to check if a snap is installed
-snap_installed() {
-    snap list "$1" &> /dev/null 2>&1
-}
-
 echo ""
 print_header "Installing applications..."
 echo ""
 
 # Install Google Chrome if user wants it
 if [[ "$install_chrome" =~ ^[Yy]$ ]]; then
-    if command_exists google-chrome || command_exists google-chrome-stable; then
+    if [ "$chrome_present" = true ]; then
         print_info "Google Chrome is already installed, skipping"
         chrome_skipped=true
         chrome_installed=true
@@ -208,7 +280,7 @@ else
 fi
 
 # Install LibreOffice
-if command_exists libreoffice; then
+if [ "$libreoffice_present" = true ]; then
     print_info "LibreOffice is already installed, skipping"
     libreoffice_skipped=true
     libreoffice_installed=true
@@ -223,7 +295,7 @@ else
 fi
 
 # Install Visual Studio Code (via Snap)
-if command_exists code || snap_installed code; then
+if [ "$vscode_present" = true ]; then
     print_info "Visual Studio Code is already installed, skipping"
     vscode_skipped=true
     vscode_installed=true
@@ -240,7 +312,7 @@ else
 fi
 
 # Install VLC Media Player
-if command_exists vlc; then
+if [ "$vlc_present" = true ]; then
     print_info "VLC is already installed, skipping"
     vlc_skipped=true
     vlc_installed=true
@@ -255,7 +327,7 @@ else
 fi
 
 # Install Remmina
-if command_exists remmina; then
+if [ "$remmina_present" = true ]; then
     print_info "Remmina is already installed, skipping"
     remmina_skipped=true
     remmina_installed=true
@@ -270,7 +342,7 @@ else
 fi
 
 # Install Spotify (via Snap)
-if snap_installed spotify; then
+if [ "$spotify_present" = true ]; then
     print_info "Spotify is already installed, skipping"
     spotify_skipped=true
     spotify_installed=true
