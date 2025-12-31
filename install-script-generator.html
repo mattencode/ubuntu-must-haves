@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ubuntu App Installer Generator</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23f97316'/%3E%3Cstop offset='100%25' stop-color='%23c2410c'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='10' fill='url(%23g)'/%3E%3Ctext x='24' y='33' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='white' text-anchor='middle'%3EU+%3C/text%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d0f12;
+            --bg-card: #161a1f;
+            --bg-card-hover: #1c2128;
+            --border: #2d333b;
+            --text: #e6edf3;
+            --text-dim: #7d8590;
+            --accent: #f97316;
+            --accent-dim: #c2410c;
+            --apt: #22c55e;
+            --snap: #a855f7;
+            --flatpak: #3b82f6;
+            --repo: #eab308;
+            --warning: #fbbf24;
+            --dry-run: #06b6d4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Grain overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        h1 span {
+            color: var(--accent);
+        }
+
+        .tagline {
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        .stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .stat-dot.apt { background: var(--apt); }
+        .stat-dot.snap { background: var(--snap); }
+        .stat-dot.flatpak { background: var(--flatpak); }
+        .stat-dot.repo { background: var(--repo); }
+
+        /* Main grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 2rem;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Categories */
+        .categories {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .category {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .category-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .category-icon {
+            font-size: 1.25rem;
+        }
+
+        .category-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            background: var(--bg-dark);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .category-apps {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 0.5rem;
+            padding: 1rem;
+        }
+
+        /* App items */
+        .app-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+        }
+
+        .app-item:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--border);
+        }
+
+        .app-item.selected {
+            background: rgba(249, 115, 22, 0.1);
+            border-color: var(--accent);
+        }
+
+        .app-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .app-item.selected .app-checkbox {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+
+        .app-checkbox svg {
+            width: 12px;
+            height: 12px;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .app-item.selected .app-checkbox svg {
+            opacity: 1;
+        }
+
+        .app-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .app-name {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .app-description {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+            line-height: 1.4;
+        }
+
+        .app-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.35rem;
+        }
+
+        .app-method {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 0.125rem 0.375rem;
+            border-radius: 3px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .app-method.apt { background: rgba(34, 197, 94, 0.2); color: var(--apt); }
+        .app-method.snap { background: rgba(168, 85, 247, 0.2); color: var(--snap); }
+        .app-method.flatpak { background: rgba(59, 130, 246, 0.2); color: var(--flatpak); }
+        .app-method.repo { background: rgba(234, 179, 8, 0.2); color: var(--repo); }
+
+        .app-warning {
+            color: var(--warning);
+            font-size: 0.9rem;
+        }
+
+        /* Output panel */
+        .output-panel {
+            position: sticky;
+            top: 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .output-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            background: rgba(255,255,255,0.02);
+            border-bottom: 1px solid var(--border);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .output-title {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .selected-count {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--accent);
+        }
+
+        .output-content {
+            padding: 1rem;
+            overflow: visible;
+        }
+
+        .output-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-dim);
+        }
+
+        .btn-primary:disabled {
+            background: var(--border);
+            color: var(--text-dim);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--bg-dark);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--text-dim);
+        }
+
+        .btn-secondary:disabled {
+            color: var(--text-dim);
+            cursor: not-allowed;
+        }
+
+        /* Dry run toggle */
+        .dry-run-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dry-run-toggle:hover {
+            border-color: var(--dry-run);
+        }
+
+        .dry-run-toggle.active {
+            border-color: var(--dry-run);
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 22px;
+            background: var(--border);
+            border-radius: 11px;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .dry-run-toggle.active .toggle-switch {
+            background: var(--dry-run);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+        }
+
+        .dry-run-toggle.active .toggle-switch::after {
+            transform: translateX(18px);
+        }
+
+        .toggle-info {
+            flex: 1;
+        }
+
+        .toggle-label {
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .toggle-description {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .script-preview {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            line-height: 1.7;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            display: none;
+        }
+
+        .script-preview::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .script-preview::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        .script-preview::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        .script-comment {
+            color: var(--text-dim);
+        }
+
+        .script-command {
+            color: var(--apt);
+        }
+
+        .script-string {
+            color: var(--accent);
+        }
+
+        /* Warning box */
+        .warning-box {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.875rem;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            position: relative;
+            overflow: visible;
+        }
+
+        .warning-box.hidden {
+            display: none;
+        }
+
+        .warning-icon {
+            color: var(--warning);
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .warning-box strong {
+            color: var(--warning);
+        }
+
+        .repo-list {
+            margin-top: 0.5rem;
+            padding-left: 1.25rem;
+            list-style: none;
+            overflow: visible;
+        }
+
+        .repo-list li {
+            margin-top: 0.4rem;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            position: relative;
+            line-height: 1.5;
+            overflow: visible;
+        }
+
+        .repo-list li:hover {
+            z-index: 10;
+        }
+
+        .repo-list li::before {
+            content: '•';
+            color: var(--warning);
+            position: absolute;
+            left: -1rem;
+        }
+
+        .repo-list code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            background: rgba(0,0,0,0.3);
+            padding: 0.15rem 0.35rem;
+            border-radius: 3px;
+            word-break: break-all;
+            display: inline;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+            border-bottom: 1px dotted var(--text-dim);
+            cursor: help;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 0.5rem;
+            background: #1a1d21;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: normal;
+            white-space: normal;
+            width: 280px;
+            text-align: left;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 9999;
+            pointer-events: none;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            line-height: 1.5;
+        }
+
+        .tooltip:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+        }
+
+        .empty-state-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Quick actions */
+        .quick-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .quick-btn {
+            padding: 0.5rem 0.75rem;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-dim);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .quick-btn:hover {
+            color: var(--text);
+            border-color: var(--text-dim);
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--bg-card);
+            border: 1px solid var(--apt);
+            padding: 0.875rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast-icon {
+            color: var(--apt);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">U+</div>
+                <h1>Ubuntu <span>App Installer</span></h1>
+            </div>
+            <p class="tagline">Select your apps, get a ready-to-run install script.</p>
+            <div class="stats-bar">
+                <div class="stat"><span class="stat-dot apt"></span> apt = native packages</div>
+                <div class="stat"><span class="stat-dot snap"></span> snap = sandboxed</div>
+                <div class="stat"><span class="stat-dot flatpak"></span> flatpak = universal</div>
+                <div class="stat"><span class="stat-dot repo"></span> repo = third-party</div>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <div class="categories">
+                <!-- Browsers -->
+                <div class="category">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <span class="category-icon">🌐</span>
+                            Browsers
+                        </div>
+                        <span class="category-count" data-category="browsers">0 selected</span>
+                    </div>
+                    <div class="category-apps" data-category="browsers">
+                        <div class="app-item" data-app="google-chrome" data-method="repo" data-name="Google Chrome">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Google Chrome</div>
+                                <div class="app-description">Fast, secure browser from Google with sync</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds Google repository via extrepo">⚠</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="firefox" data-method="apt" data-name="Firefox">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Firefox</div>
+                                <div class="app-description">Privacy-focused open-source browser from Mozilla</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="brave" data-method="repo" data-name="Brave">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Brave</div>
+                                <div class="app-description">Privacy browser with built-in ad blocking</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds Brave repository">⚠</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="chromium" data-method="snap" data-name="Chromium">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Chromium</div>
+                                <div class="app-description">Open-source base of Chrome, no Google services</div>
+                                <div class="app-meta"><span class="app-method snap">snap</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="vivaldi" data-method="repo" data-name="Vivaldi">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Vivaldi</div>
+                                <div class="app-description">Highly customizable browser for power users</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds Vivaldi repository">⚠</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Office -->
+                <div class="category">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <span class="category-icon">📄</span>
+                            Office & Productivity
+                        </div>
+                        <span class="category-count" data-category="office">0 selected</span>
+                    </div>
+                    <div class="category-apps" data-category="office">
+                        <div class="app-item" data-app="libreoffice" data-method="apt" data-name="LibreOffice">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">LibreOffice</div>
+                                <div class="app-description">Full office suite: Writer, Calc, Impress, Draw</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="onlyoffice" data-method="flatpak" data-name="OnlyOffice">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">OnlyOffice</div>
+                                <div class="app-description">MS Office compatible suite with better formatting</div>
+                                <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="obsidian" data-method="flatpak" data-name="Obsidian">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Obsidian</div>
+                                <div class="app-description">Knowledge base with linked markdown notes</div>
+                                <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="thunderbird" data-method="apt" data-name="Thunderbird">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Thunderbird</div>
+                                <div class="app-description">Email client with calendar and contacts</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Media -->
+                <div class="category">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <span class="category-icon">🎬</span>
+                            Media & Graphics
+                        </div>
+                        <span class="category-count" data-category="media">0 selected</span>
+                    </div>
+                    <div class="category-apps" data-category="media">
+                        <div class="app-item" data-app="vlc" data-method="apt" data-name="VLC">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">VLC</div>
+                                <div class="app-description">Plays virtually any media format</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="spotify" data-method="snap" data-name="Spotify">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Spotify</div>
+                                <div class="app-description">Music streaming with playlists and podcasts</div>
+                                <div class="app-meta"><span class="app-method snap">snap</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="audacity" data-method="apt" data-name="Audacity">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Audacity</div>
+                                <div class="app-description">Audio editor for recording and editing</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="obs-studio" data-method="flatpak" data-name="OBS Studio">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">OBS Studio</div>
+                                <div class="app-description">Screen recording and live streaming</div>
+                                <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="handbrake" data-method="apt" data-name="HandBrake">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">HandBrake</div>
+                                <div class="app-description">Video transcoder for format conversion</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="gimp" data-method="apt" data-name="GIMP">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">GIMP</div>
+                                <div class="app-description">Image editor similar to Photoshop</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="inkscape" data-method="apt" data-name="Inkscape">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Inkscape</div>
+                                <div class="app-description">Vector graphics editor like Illustrator</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Development -->
+                <div class="category">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <span class="category-icon">💻</span>
+                            Development
+                        </div>
+                        <span class="category-count" data-category="dev">0 selected</span>
+                    </div>
+                    <div class="category-apps" data-category="dev">
+                        <div class="app-item" data-app="code" data-method="snap" data-name="VS Code">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">VS Code</div>
+                                <div class="app-description">Extensible code editor from Microsoft</div>
+                                <div class="app-meta"><span class="app-method snap">snap</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="sublime-text" data-method="snap" data-name="Sublime Text">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Sublime Text</div>
+                                <div class="app-description">Fast, lightweight text editor</div>
+                                <div class="app-meta"><span class="app-method snap">snap</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="git" data-method="apt" data-name="Git">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Git</div>
+                                <div class="app-description">Version control for source code</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="docker" data-method="repo" data-name="Docker">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Docker</div>
+                                <div class="app-description">Container platform for app deployment</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds Docker official repository">⚠</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="nodejs" data-method="repo" data-name="Node.js LTS">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Node.js LTS</div>
+                                <div class="app-description">JavaScript runtime for server-side apps</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds NodeSource repository">⚠</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="python3-pip" data-method="apt" data-name="Python pip">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Python pip</div>
+                                <div class="app-description">Python package installer</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="postman" data-method="snap" data-name="Postman">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Postman</div>
+                                <div class="app-description">API development and testing tool</div>
+                                <div class="app-meta"><span class="app-method snap">snap</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Communication -->
+                <div class="category">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <span class="category-icon">💬</span>
+                            Communication
+                        </div>
+                        <span class="category-count" data-category="comm">0 selected</span>
+                    </div>
+                    <div class="category-apps" data-category="comm">
+                        <div class="app-item" data-app="discord" data-method="snap" data-name="Discord">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Discord</div>
+                                <div class="app-description">Voice, video, and text for communities</div>
+                                <div class="app-meta"><span class="app-method snap">snap</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="slack" data-method="snap" data-name="Slack">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Slack</div>
+                                <div class="app-description">Team messaging and collaboration</div>
+                                <div class="app-meta"><span class="app-method snap">snap</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="zoom" data-method="repo" data-name="Zoom">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Zoom</div>
+                                <div class="app-description">Video conferencing and meetings</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds Zoom official repository">⚠</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="signal" data-method="flatpak" data-name="Signal">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Signal</div>
+                                <div class="app-description">Encrypted messaging for privacy</div>
+                                <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Utilities -->
+                <div class="category">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <span class="category-icon">🔧</span>
+                            Utilities
+                        </div>
+                        <span class="category-count" data-category="utils">0 selected</span>
+                    </div>
+                    <div class="category-apps" data-category="utils">
+                        <div class="app-item" data-app="remmina" data-method="apt" data-name="Remmina">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Remmina</div>
+                                <div class="app-description">Remote desktop client (RDP, VNC, SSH)</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="flameshot" data-method="apt" data-name="Flameshot">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Flameshot</div>
+                                <div class="app-description">Screenshot tool with annotation</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="timeshift" data-method="apt" data-name="Timeshift">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Timeshift</div>
+                                <div class="app-description">System restore and backup tool</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="htop" data-method="apt" data-name="htop">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">htop</div>
+                                <div class="app-description">Interactive process viewer in terminal</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="fastfetch" data-method="apt" data-name="fastfetch">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">fastfetch</div>
+                                <div class="app-description">System info display (neofetch alternative)</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="gnome-tweaks" data-method="apt" data-name="GNOME Tweaks">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">GNOME Tweaks</div>
+                                <div class="app-description">Advanced GNOME desktop settings</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="syncthing" data-method="apt" data-name="Syncthing">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Syncthing</div>
+                                <div class="app-description">Peer-to-peer file synchronization</div>
+                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gaming -->
+                <div class="category">
+                    <div class="category-header">
+                        <div class="category-title">
+                            <span class="category-icon">🎮</span>
+                            Gaming
+                        </div>
+                        <span class="category-count" data-category="gaming">0 selected</span>
+                    </div>
+                    <div class="category-apps" data-category="gaming">
+                        <div class="app-item" data-app="steam" data-method="repo" data-name="Steam">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Steam</div>
+                                <div class="app-description">Gaming platform with Proton for Windows games</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds i386 architecture for 32-bit support">⚠</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="lutris" data-method="flatpak" data-name="Lutris">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Lutris</div>
+                                <div class="app-description">Game manager for all platforms</div>
+                                <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="heroic" data-method="flatpak" data-name="Heroic Launcher">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Heroic Launcher</div>
+                                <div class="app-description">Epic Games and GOG launcher</div>
+                                <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="output-panel">
+                <div class="output-header">
+                    <span class="output-title">Install script</span>
+                    <span class="selected-count" id="selected-count">0 apps selected</span>
+                </div>
+                <div class="output-content">
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="selectAll()">Select all</button>
+                        <button class="quick-btn" onclick="selectNone()">Clear all</button>
+                        <button class="quick-btn" onclick="selectEssentials()">Essentials</button>
+                    </div>
+
+                    <div class="dry-run-toggle active" id="dry-run-toggle" onclick="toggleDryRun()">
+                        <div class="toggle-switch"></div>
+                        <div class="toggle-info">
+                            <div class="toggle-label">🔍 Dry run mode</div>
+                            <div class="toggle-description" id="dry-run-description">Commands shown but NOT executed — safe for review</div>
+                        </div>
+                    </div>
+
+                    <div class="warning-box hidden" id="repo-warning">
+                        <span class="warning-icon">⚠️</span>
+                        <div>
+                            <strong>Third-party repositories will be added:</strong>
+                            <ul class="repo-list" id="repo-list"></ul>
+                        </div>
+                    </div>
+
+                    <div class="output-actions">
+                        <button class="btn btn-primary" onclick="copyScript()" id="copy-btn" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            Copy
+                        </button>
+                        <button class="btn btn-secondary" onclick="downloadScript()" id="download-btn" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            Download
+                        </button>
+                    </div>
+
+                    <div class="script-preview" id="script-preview"></div>
+                    
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-state-icon">📦</div>
+                        <div>Select apps to generate your install script</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            Built for the Ubuntu community · <a href="https://github.com/mattencode" target="_blank">GitHub</a>
+        </footer>
+    </div>
+
+    <div class="toast" id="toast">
+        <span class="toast-icon">✓</span>
+        <span id="toast-message">Copied to clipboard!</span>
+    </div>
+
+    <script>
+        // App installation commands with descriptions and repo info
+        const appCommands = {
+            // Browsers
+            'google-chrome': {
+                method: 'repo',
+                setup: `# Install Google Chrome
+sudo apt install -y ca-certificates curl extrepo
+sudo sed -i 's/^# - non-free$/- non-free/' /etc/extrepo/config.yaml 2>/dev/null || true
+sudo extrepo enable google_chrome
+sudo apt update
+sudo apt install -y google-chrome-stable
+sudo rm -f /etc/apt/sources.list.d/google-chrome*.list`,
+                name: 'Google Chrome',
+                repoInfo: 'Google Chrome repository via extrepo',
+                repoUrl: 'dl.google.com/linux/chrome'
+            },
+            'firefox': {
+                method: 'apt',
+                packages: ['firefox'],
+                name: 'Firefox'
+            },
+            'brave': {
+                method: 'repo',
+                setup: `# Install Brave Browser
+sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+sudo apt update
+sudo apt install -y brave-browser`,
+                name: 'Brave',
+                repoInfo: 'Brave Software repository',
+                repoUrl: 'brave-browser-apt-release.s3.brave.com'
+            },
+            'chromium': {
+                method: 'snap',
+                packages: ['chromium'],
+                name: 'Chromium'
+            },
+            'vivaldi': {
+                method: 'repo',
+                setup: `# Install Vivaldi
+wget -qO- https://repo.vivaldi.com/archive/linux_signing_key.pub | gpg --dearmor | sudo dd of=/usr/share/keyrings/vivaldi-browser.gpg
+echo "deb [signed-by=/usr/share/keyrings/vivaldi-browser.gpg] https://repo.vivaldi.com/archive/deb/ stable main" | sudo tee /etc/apt/sources.list.d/vivaldi-archive.list
+sudo apt update
+sudo apt install -y vivaldi-stable`,
+                name: 'Vivaldi',
+                repoInfo: 'Vivaldi Technologies repository',
+                repoUrl: 'repo.vivaldi.com'
+            },
+
+            // Office
+            'libreoffice': {
+                method: 'apt',
+                packages: ['libreoffice'],
+                name: 'LibreOffice'
+            },
+            'onlyoffice': {
+                method: 'flatpak',
+                packages: ['org.onlyoffice.desktopeditors'],
+                name: 'OnlyOffice'
+            },
+            'obsidian': {
+                method: 'flatpak',
+                packages: ['md.obsidian.Obsidian'],
+                name: 'Obsidian'
+            },
+            'thunderbird': {
+                method: 'apt',
+                packages: ['thunderbird'],
+                name: 'Thunderbird'
+            },
+
+            // Media
+            'vlc': {
+                method: 'apt',
+                packages: ['vlc'],
+                name: 'VLC'
+            },
+            'spotify': {
+                method: 'snap',
+                packages: ['spotify'],
+                name: 'Spotify'
+            },
+            'audacity': {
+                method: 'apt',
+                packages: ['audacity'],
+                name: 'Audacity'
+            },
+            'obs-studio': {
+                method: 'flatpak',
+                packages: ['com.obsproject.Studio'],
+                name: 'OBS Studio'
+            },
+            'handbrake': {
+                method: 'apt',
+                packages: ['handbrake'],
+                name: 'HandBrake'
+            },
+            'gimp': {
+                method: 'apt',
+                packages: ['gimp'],
+                name: 'GIMP'
+            },
+            'inkscape': {
+                method: 'apt',
+                packages: ['inkscape'],
+                name: 'Inkscape'
+            },
+
+            // Development
+            'code': {
+                method: 'snap',
+                packages: ['code --classic'],
+                name: 'VS Code'
+            },
+            'sublime-text': {
+                method: 'snap',
+                packages: ['sublime-text --classic'],
+                name: 'Sublime Text'
+            },
+            'git': {
+                method: 'apt',
+                packages: ['git'],
+                name: 'Git'
+            },
+            'docker': {
+                method: 'repo',
+                setup: `# Install Docker
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "\${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER`,
+                name: 'Docker',
+                repoInfo: 'Docker official repository',
+                repoUrl: 'download.docker.com/linux/ubuntu'
+            },
+            'nodejs': {
+                method: 'repo',
+                setup: `# Install Node.js LTS
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs`,
+                name: 'Node.js LTS',
+                repoInfo: 'NodeSource repository (LTS)',
+                repoUrl: 'deb.nodesource.com'
+            },
+            'python3-pip': {
+                method: 'apt',
+                packages: ['python3-pip'],
+                name: 'Python pip'
+            },
+            'postman': {
+                method: 'snap',
+                packages: ['postman'],
+                name: 'Postman'
+            },
+
+            // Communication
+            'discord': {
+                method: 'snap',
+                packages: ['discord'],
+                name: 'Discord'
+            },
+            'slack': {
+                method: 'snap',
+                packages: ['slack'],
+                name: 'Slack'
+            },
+            'zoom': {
+                method: 'repo',
+                setup: `# Install Zoom
+wget -qO- https://zoom.us/linux/download/pubkey | sudo gpg --dearmor -o /usr/share/keyrings/zoom-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/zoom-archive-keyring.gpg] https://mirror.zoom.us/linux/deb/stable main" | sudo tee /etc/apt/sources.list.d/zoom.list
+sudo apt update
+sudo apt install -y zoom`,
+                name: 'Zoom',
+                repoInfo: 'Zoom Video Communications repository',
+                repoUrl: 'mirror.zoom.us/linux'
+            },
+            'signal': {
+                method: 'flatpak',
+                packages: ['org.signal.Signal'],
+                name: 'Signal'
+            },
+
+            // Utilities
+            'remmina': {
+                method: 'apt',
+                packages: ['remmina'],
+                name: 'Remmina'
+            },
+            'flameshot': {
+                method: 'apt',
+                packages: ['flameshot'],
+                name: 'Flameshot'
+            },
+            'timeshift': {
+                method: 'apt',
+                packages: ['timeshift'],
+                name: 'Timeshift'
+            },
+            'htop': {
+                method: 'apt',
+                packages: ['htop'],
+                name: 'htop'
+            },
+            'fastfetch': {
+                method: 'apt',
+                packages: ['fastfetch'],
+                name: 'fastfetch'
+            },
+            'gnome-tweaks': {
+                method: 'apt',
+                packages: ['gnome-tweaks'],
+                name: 'GNOME Tweaks'
+            },
+            'syncthing': {
+                method: 'apt',
+                packages: ['syncthing'],
+                name: 'Syncthing'
+            },
+
+            // Gaming
+            'steam': {
+                method: 'repo',
+                setup: `# Install Steam (with 32-bit library support)
+sudo dpkg --add-architecture i386
+sudo apt update
+sudo apt install -y steam`,
+                name: 'Steam',
+                repoInfo: 'Adds i386 architecture for 32-bit support',
+                repoUrl: 'i386 multilib'
+            },
+            'lutris': {
+                method: 'flatpak',
+                packages: ['net.lutris.Lutris'],
+                name: 'Lutris'
+            },
+            'heroic': {
+                method: 'flatpak',
+                packages: ['com.heroicgameslauncher.hgl'],
+                name: 'Heroic Launcher'
+            }
+        };
+
+        const essentials = ['google-chrome', 'libreoffice', 'code', 'vlc', 'remmina', 'spotify'];
+
+        let selectedApps = new Set();
+        let dryRunMode = true;
+
+        // Initialize app items
+        document.querySelectorAll('.app-item').forEach(item => {
+            item.addEventListener('click', () => toggleApp(item));
+        });
+
+        function toggleApp(item) {
+            const appId = item.dataset.app;
+            if (selectedApps.has(appId)) {
+                selectedApps.delete(appId);
+                item.classList.remove('selected');
+            } else {
+                selectedApps.add(appId);
+                item.classList.add('selected');
+            }
+            updateOutput();
+        }
+
+        function toggleDryRun() {
+            dryRunMode = !dryRunMode;
+            const toggle = document.getElementById('dry-run-toggle');
+            const desc = document.getElementById('dry-run-description');
+            
+            toggle.classList.toggle('active', dryRunMode);
+            desc.textContent = dryRunMode 
+                ? 'Commands shown but NOT executed — safe for review'
+                : 'Commands WILL be executed — review carefully!';
+            
+            updateOutput();
+        }
+
+        function selectAll() {
+            document.querySelectorAll('.app-item').forEach(item => {
+                const appId = item.dataset.app;
+                selectedApps.add(appId);
+                item.classList.add('selected');
+            });
+            updateOutput();
+        }
+
+        function selectNone() {
+            selectedApps.clear();
+            document.querySelectorAll('.app-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            updateOutput();
+        }
+
+        function selectEssentials() {
+            essentials.forEach(appId => {
+                selectedApps.add(appId);
+                const item = document.querySelector(`[data-app="${appId}"]`);
+                if (item) item.classList.add('selected');
+            });
+            updateOutput();
+        }
+
+        function updateOutput() {
+            const count = selectedApps.size;
+            document.getElementById('selected-count').textContent = `${count} app${count !== 1 ? 's' : ''} selected`;
+            
+            const copyBtn = document.getElementById('copy-btn');
+            const downloadBtn = document.getElementById('download-btn');
+            const emptyState = document.getElementById('empty-state');
+            const preview = document.getElementById('script-preview');
+            const warning = document.getElementById('repo-warning');
+            const repoList = document.getElementById('repo-list');
+            
+            copyBtn.disabled = count === 0;
+            downloadBtn.disabled = count === 0;
+
+            // Update category counts
+            const categories = {};
+            document.querySelectorAll('.app-item.selected').forEach(item => {
+                const cat = item.closest('.category-apps').dataset.category;
+                categories[cat] = (categories[cat] || 0) + 1;
+            });
+            
+            document.querySelectorAll('.category-count').forEach(el => {
+                const cat = el.dataset.category;
+                const catCount = categories[cat] || 0;
+                el.textContent = `${catCount} selected`;
+            });
+
+            // Check for repo apps and show specific warnings
+            const repoApps = Array.from(selectedApps)
+                .filter(id => appCommands[id]?.method === 'repo')
+                .map(id => appCommands[id]);
+
+            if (repoApps.length > 0) {
+                warning.classList.remove('hidden');
+                const tooltips = {
+                    'extrepo': 'extrepo is a Debian/Ubuntu tool that manages external repositories safely. It handles GPG keys and sources.list entries from a curated list of third-party repos.',
+                    'NodeSource': 'NodeSource provides up-to-date Node.js binaries. The setup script adds their repository and GPG key to your system.'
+                };
+                repoList.innerHTML = repoApps.map(app => {
+                    let info = app.repoInfo;
+                    // Add tooltips for known terms
+                    for (const [term, tip] of Object.entries(tooltips)) {
+                        if (info.includes(term)) {
+                            info = info.replace(term, `<span class="tooltip" data-tooltip="${tip}">${term}</span>`);
+                        }
+                    }
+                    return `<li><strong>${app.name}</strong>: ${info}<br><code>${app.repoUrl}</code></li>`;
+                }).join('');
+            } else {
+                warning.classList.add('hidden');
+            }
+
+            // Always update preview
+            if (count > 0) {
+                preview.style.display = 'block';
+                emptyState.style.display = 'none';
+                preview.innerHTML = generateScript(true);
+            } else {
+                preview.style.display = 'none';
+                emptyState.style.display = 'block';
+            }
+        }
+
+        function generateScript(withHighlighting = false) {
+            const apps = Array.from(selectedApps).map(id => ({
+                id,
+                ...appCommands[id]
+            }));
+
+            const aptApps = apps.filter(a => a.method === 'apt');
+            const snapApps = apps.filter(a => a.method === 'snap');
+            const flatpakApps = apps.filter(a => a.method === 'flatpak');
+            const repoApps = apps.filter(a => a.method === 'repo');
+
+            let script = `#!/bin/bash
+
+###############################################################################
+# Ubuntu App Installer
+# Generated: ${new Date().toISOString().split('T')[0]}
+# Generator: https://github.com/mattencode
+#
+# Selected apps: ${apps.map(a => a.name).join(', ')}
+#
+${dryRunMode ? '# 🔍 DRY RUN MODE - Commands will be displayed but NOT executed\n#' : '# ⚠️  LIVE MODE - Commands WILL be executed!\n#'}
+# Always review scripts before running them!
+###############################################################################
+
+set -euo pipefail  # Exit on error, undefined vars, and pipe failures
+
+# Dry run mode
+DRY_RUN=${dryRunMode ? 'true' : 'false'}
+
+# Colors
+RED='\\033[0;31m'
+GREEN='\\033[0;32m'
+YELLOW='\\033[1;33m'
+CYAN='\\033[0;36m'
+NC='\\033[0m'
+
+print_status() { echo -e "\${GREEN}[✓]\${NC} \$1"; }
+print_error() { echo -e "\${RED}[✗]\${NC} \$1"; }
+print_info() { echo -e "\${YELLOW}[i]\${NC} \$1"; }
+print_cmd() { echo -e "\${CYAN}    \\$\${NC} \$1"; }
+
+# Execute command (or just print in dry run mode)
+run_cmd() {
+    print_cmd "\$1"
+    if [ "\$DRY_RUN" = "false" ]; then
+        local exit_status=0
+        eval "\$1" || exit_status=\$?
+        return \$exit_status
+    fi
+    return 0
+}
+
+# Check helpers
+command_exists() { command -v "\$1" &> /dev/null; }
+dpkg_installed() { dpkg-query -W -f='\${Status}' "\$1" 2>/dev/null | grep -q "install ok installed"; }
+snap_installed() { snap list "\$1" &> /dev/null 2>&1; }
+flatpak_installed() { flatpak list --app --columns=application 2>/dev/null | grep -qx "\$1"; }
+
+# Tracking
+installed_apps=""
+skipped_apps=""
+failed_apps=""
+
+# Check if running as root
+if [ "\$EUID" -eq 0 ]; then 
+    print_error "Please run as normal user (not root/sudo)"
+    exit 1
+fi
+
+echo ""
+echo "╔════════════════════════════════════════════════════════════════════╗"
+echo "║                        Ubuntu App Installer                        ║"
+echo "╚════════════════════════════════════════════════════════════════════╝"
+echo ""
+if [ "\$DRY_RUN" = "true" ]; then
+    echo -e "\${YELLOW}🔍 DRY RUN MODE - No changes will be made\${NC}"
+    echo ""
+fi
+
+`;
+
+            // Add repo warnings
+            if (repoApps.length > 0) {
+                script += `# Third-party repositories that will be added:
+${repoApps.map(a => `#   - ${a.name}: ${a.repoInfo}`).join('\n')}
+echo ""
+
+`;
+            }
+
+            // Update package lists
+            script += `print_info "Updating package lists..."
+run_cmd "sudo apt update"
+echo ""
+
+`;
+
+            // =====================
+            // APT PACKAGES (batched)
+            // =====================
+            if (aptApps.length > 0) {
+                const appData = aptApps.map(app => ({
+                    name: app.name,
+                    pkg: app.packages[0].split(' ')[0],
+                    packages: app.packages.join(' ')
+                }));
+                
+                script += `# ═══════════════════════════════════════════════════════════════════════
+# APT Packages: ${aptApps.map(a => a.name).join(', ')}
+# ═══════════════════════════════════════════════════════════════════════
+
+apt_to_install=""
+apt_apps_to_verify=()
+${appData.map(a => `
+# Check ${a.name}
+if dpkg_installed ${a.pkg}; then
+    print_info "${a.name} is already installed, skipping"
+    skipped_apps+="${a.name}\\n"
+else
+    apt_to_install+=" ${a.packages}"
+    apt_apps_to_verify+=("${a.name}:${a.pkg}")
+fi`).join('')}
+
+if [ -n "\$apt_to_install" ]; then
+    echo ""
+    print_info "Installing APT packages..."
+    if run_cmd "sudo apt install -y\$apt_to_install"; then
+        # Verify installations
+        for app_entry in "\${apt_apps_to_verify[@]}"; do
+            app_name="\${app_entry%%:*}"
+            app_pkg="\${app_entry##*:}"
+            if [ "\$DRY_RUN" = "true" ]; then
+                print_status "\$app_name would be installed"
+                installed_apps+="\$app_name\\n"
+            elif dpkg_installed "\$app_pkg"; then
+                print_status "\$app_name installed successfully"
+                installed_apps+="\$app_name\\n"
+            else
+                print_error "Failed to install \$app_name"
+                failed_apps+="\$app_name\\n"
+            fi
+        done
+    else
+        print_error "APT installation failed"
+        for app_entry in "\${apt_apps_to_verify[@]}"; do
+            app_name="\${app_entry%%:*}"
+            failed_apps+="\$app_name\\n"
+        done
+    fi
+    echo ""
+fi
+
+`;
+            }
+
+            // =====================
+            // SNAP PACKAGES (batched, split by classic vs regular)
+            // =====================
+            if (snapApps.length > 0) {
+                const classicSnaps = snapApps.filter(a => a.packages[0].includes('--classic'));
+                const regularSnaps = snapApps.filter(a => !a.packages[0].includes('--classic'));
+                
+                script += `# ═══════════════════════════════════════════════════════════════════════
+# Snap Packages: ${snapApps.map(a => a.name).join(', ')}
+# ═══════════════════════════════════════════════════════════════════════
+
+# Ensure snapd is available
+snapd_available=true
+if ! command_exists snap; then
+    print_info "Installing snapd..."
+    if run_cmd "sudo apt install -y snapd"; then
+        print_cmd "sudo systemctl enable --now snapd.socket"
+        if [ "\$DRY_RUN" = "false" ]; then
+            sudo systemctl enable --now snapd.socket
+            sleep 5
+        fi
+    else
+        print_error "Failed to install snapd, skipping Snap packages"
+        snapd_available=false
+    fi
+fi
+
+if [ "\$snapd_available" = "true" ]; then
+`;
+                // Regular snaps (can be batched)
+                if (regularSnaps.length > 0) {
+                    script += `# Regular snaps
+snaps_to_install=""
+snaps_to_verify=()
+${regularSnaps.map(app => {
+    const snapName = app.packages[0].split(' ')[0];
+    return `
+if snap_installed ${snapName}; then
+    print_info "${app.name} is already installed, skipping"
+    skipped_apps+="${app.name}\\n"
+else
+    snaps_to_install+=" ${snapName}"
+    snaps_to_verify+=("${app.name}:${snapName}")
+fi`;
+}).join('')}
+
+if [ -n "\$snaps_to_install" ]; then
+    echo ""
+    print_info "Installing Snap packages..."
+    if run_cmd "sudo snap install\$snaps_to_install"; then
+        # Verify installations
+        for snap_entry in "\${snaps_to_verify[@]}"; do
+            snap_name="\${snap_entry%%:*}"
+            snap_pkg="\${snap_entry##*:}"
+            if [ "\$DRY_RUN" = "true" ]; then
+                print_status "\$snap_name would be installed"
+                installed_apps+="\$snap_name\\n"
+            elif snap_installed "\$snap_pkg"; then
+                print_status "\$snap_name installed successfully"
+                installed_apps+="\$snap_name\\n"
+            else
+                print_error "Failed to install \$snap_name"
+                failed_apps+="\$snap_name\\n"
+            fi
+        done
+    else
+        print_error "Snap installation failed"
+        for snap_entry in "\${snaps_to_verify[@]}"; do
+            snap_name="\${snap_entry%%:*}"
+            failed_apps+="\$snap_name\\n"
+        done
+    fi
+    echo ""
+fi
+
+`;
+                }
+
+                // Classic snaps (must be installed individually due to --classic flag)
+                if (classicSnaps.length > 0) {
+                    script += `# Classic snaps (require individual installation)
+${classicSnaps.map(app => {
+    const snapName = app.packages[0].split(' ')[0];
+    return `
+if snap_installed ${snapName}; then
+    print_info "${app.name} is already installed, skipping"
+    skipped_apps+="${app.name}\\n"
+else
+    print_info "Installing ${app.name}..."
+    if run_cmd "sudo snap install ${snapName} --classic"; then
+        if [ "\$DRY_RUN" = "true" ]; then
+            print_status "${app.name} would be installed"
+        elif snap_installed ${snapName}; then
+            print_status "${app.name} installed successfully"
+        else
+            print_error "Failed to verify ${app.name}"
+        fi
+        installed_apps+="${app.name}\\n"
+    else
+        print_error "Failed to install ${app.name}"
+        failed_apps+="${app.name}\\n"
+    fi
+    echo ""
+fi`;
+}).join('\n')}
+
+`;
+                }
+                
+                // Close the snapd_available check
+                script += `fi  # end snapd_available check
+`;
+            }
+
+            // =====================
+            // FLATPAK PACKAGES (batched)
+            // =====================
+            if (flatpakApps.length > 0) {
+                script += `# ═══════════════════════════════════════════════════════════════════════
+# Flatpak Packages: ${flatpakApps.map(a => a.name).join(', ')}
+# ═══════════════════════════════════════════════════════════════════════
+
+# Ensure Flatpak is available
+if ! command_exists flatpak; then
+    print_info "Installing Flatpak..."
+    if ! run_cmd "sudo apt install -y flatpak"; then
+        print_error "Failed to install Flatpak, skipping Flatpak packages"
+    fi
+fi
+
+# Add Flathub remote
+if command_exists flatpak; then
+    run_cmd "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo" || true
+elif [ "\$DRY_RUN" = "true" ]; then
+    print_cmd "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
+fi
+
+flatpaks_to_install=""
+flatpaks_to_verify=()
+${flatpakApps.map(app => `
+if command_exists flatpak && flatpak_installed ${app.packages[0]}; then
+    print_info "${app.name} is already installed, skipping"
+    skipped_apps+="${app.name}\\n"
+else
+    flatpaks_to_install+=" ${app.packages[0]}"
+    flatpaks_to_verify+=("${app.name}:${app.packages[0]}")
+fi`).join('')}
+
+if [ -n "\$flatpaks_to_install" ]; then
+    echo ""
+    print_info "Installing Flatpak packages..."
+    flatpak_install_ok=false
+    if command_exists flatpak; then
+        if run_cmd "flatpak install -y flathub\$flatpaks_to_install"; then
+            flatpak_install_ok=true
+        fi
+    elif [ "\$DRY_RUN" = "true" ]; then
+        print_cmd "flatpak install -y flathub\$flatpaks_to_install"
+        flatpak_install_ok=true
+    fi
+    
+    # Verify installations
+    for flatpak_entry in "\${flatpaks_to_verify[@]}"; do
+        flatpak_name="\${flatpak_entry%%:*}"
+        flatpak_id="\${flatpak_entry##*:}"
+        if [ "\$DRY_RUN" = "true" ]; then
+            print_status "\$flatpak_name would be installed"
+            installed_apps+="\$flatpak_name\\n"
+        elif [ "\$flatpak_install_ok" = "true" ] && flatpak_installed "\$flatpak_id"; then
+            print_status "\$flatpak_name installed successfully"
+            installed_apps+="\$flatpak_name\\n"
+        else
+            print_error "Failed to install \$flatpak_name"
+            failed_apps+="\$flatpak_name\\n"
+        fi
+    done
+    echo ""
+fi
+
+`;
+            }
+
+            // =====================
+            // REPO-BASED PACKAGES (individual - each has unique setup)
+            // =====================
+            if (repoApps.length > 0) {
+                script += `# ═══════════════════════════════════════════════════════════════════════
+# Third-Party Repository Packages
+# ═══════════════════════════════════════════════════════════════════════
+
+`;
+            }
+            
+            repoApps.forEach(app => {
+                const checkCmd = getCheckCommand(app.id);
+                
+                // Generate the install commands with proper printing
+                const installLines = app.setup.split('\n')
+                    .filter(line => line.trim() && !line.trim().startsWith('#'))
+                    .map(line => {
+                        // Escape for bash echo, but execute the original
+                        const escaped = line.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`');
+                        return `    print_cmd "${escaped}"
+    if [ "\$DRY_RUN" = "false" ]; then
+        ${line}
+    fi`;
+                    })
+                    .join('\n');
+                
+                script += `# ${app.name}
+# Repository: ${app.repoInfo} (${app.repoUrl})
+if ${checkCmd}; then
+    print_info "${app.name} is already installed, skipping"
+    skipped_apps+="${app.name}\\n"
+else
+    print_info "Installing ${app.name}..."
+    print_info "Adding repository: ${app.repoUrl}"
+${installLines}
+    if [ "\$DRY_RUN" = "false" ] && ${checkCmd}; then
+        print_status "${app.name} installed successfully"
+        installed_apps+="${app.name}\\n"
+    elif [ "\$DRY_RUN" = "true" ]; then
+        print_status "${app.name} would be installed"
+        installed_apps+="${app.name}\\n"
+    else
+        print_error "Failed to install ${app.name}"
+        failed_apps+="${app.name}\\n"
+    fi
+    echo ""
+fi
+
+`;
+            });
+
+            // Cleanup and summary
+            script += `# Cleanup
+echo ""
+print_info "Cleaning up..."
+run_cmd "sudo apt autoremove -y"
+run_cmd "sudo apt autoclean"
+
+echo ""
+echo "╔════════════════════════════════════════════════════════════════════╗"
+echo "║                       Installation Complete!                       ║"
+echo "╚════════════════════════════════════════════════════════════════════╝"
+echo ""
+
+if [ -n "\$installed_apps" ]; then
+    echo "Newly installed:"
+    echo -e "\$installed_apps" | while read -r app; do
+        [ -n "\$app" ] && echo "  ✓ \$app"
+    done || true
+    echo ""
+fi
+
+if [ -n "\$skipped_apps" ]; then
+    echo "Already installed (skipped):"
+    echo -e "\$skipped_apps" | while read -r app; do
+        [ -n "\$app" ] && echo "  • \$app"
+    done || true
+    echo ""
+fi
+
+if [ -n "\$failed_apps" ]; then
+    echo "Failed to install:"
+    echo -e "\$failed_apps" | while read -r app; do
+        [ -n "\$app" ] && echo "  ✗ \$app"
+    done || true
+    echo ""
+fi
+`;
+
+            if (selectedApps.has('docker')) {
+                script += `
+echo -e "\${YELLOW}Note: Log out and back in for Docker group membership to take effect\${NC}"
+`;
+            }
+
+            script += `
+echo "Launch installed apps from your application menu."
+`;
+
+            if (withHighlighting) {
+                return highlightScript(script);
+            }
+            return script;
+        }
+
+        function getCheckCommand(appId) {
+            const checks = {
+                'google-chrome': 'command_exists google-chrome || command_exists google-chrome-stable',
+                'firefox': 'command_exists firefox',
+                'brave': 'command_exists brave-browser',
+                'chromium': 'command_exists chromium || snap_installed chromium',
+                'vivaldi': 'command_exists vivaldi || command_exists vivaldi-stable',
+                'libreoffice': 'command_exists libreoffice',
+                'onlyoffice': 'flatpak_installed org.onlyoffice.desktopeditors',
+                'obsidian': 'flatpak_installed md.obsidian.Obsidian',
+                'thunderbird': 'command_exists thunderbird',
+                'vlc': 'command_exists vlc',
+                'spotify': 'snap_installed spotify',
+                'audacity': 'command_exists audacity',
+                'obs-studio': 'flatpak_installed com.obsproject.Studio',
+                'handbrake': 'command_exists handbrake || command_exists ghb',
+                'gimp': 'command_exists gimp',
+                'inkscape': 'command_exists inkscape',
+                'code': 'command_exists code || snap_installed code',
+                'sublime-text': 'command_exists subl || snap_installed sublime-text',
+                'git': 'command_exists git',
+                'docker': 'command_exists docker',
+                'nodejs': 'command_exists node',
+                'python3-pip': 'command_exists pip3',
+                'postman': 'snap_installed postman',
+                'discord': 'snap_installed discord',
+                'slack': 'snap_installed slack',
+                'zoom': 'command_exists zoom',
+                'signal': 'flatpak_installed org.signal.Signal',
+                'remmina': 'command_exists remmina',
+                'flameshot': 'command_exists flameshot',
+                'timeshift': 'command_exists timeshift',
+                'htop': 'command_exists htop',
+                'fastfetch': 'command_exists fastfetch',
+                'gnome-tweaks': 'command_exists gnome-tweaks',
+                'syncthing': 'command_exists syncthing',
+                'steam': 'command_exists steam',
+                'lutris': 'flatpak_installed net.lutris.Lutris',
+                'heroic': 'flatpak_installed com.heroicgameslauncher.hgl'
+            };
+            return checks[appId] || 'false';
+        }
+
+        function highlightScript(script) {
+            return script
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/^(#.*)$/gm, '<span class="script-comment">$1</span>')
+                .replace(/(echo )"([^"]+)"/g, '$1<span class="script-string">"$2"</span>')
+                .replace(/^(\s*)(sudo .+)$/gm, '$1<span class="script-command">$2</span>');
+        }
+
+        function copyScript() {
+            const script = generateScript(false);
+            navigator.clipboard.writeText(script).then(() => {
+                showToast('Copied to clipboard!');
+            });
+        }
+
+        function downloadScript() {
+            const script = generateScript(false);
+            const blob = new Blob([script], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ubuntu-install.sh';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Script downloaded!');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        // Initialize
+        updateOutput();
+    </script>
+</body>
+</html>
