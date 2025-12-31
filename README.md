@@ -76,7 +76,3 @@ You'll be prompted before any of these changes are made.
 ## Contributing
 
 Feel free to suggest additional must-have applications or improvements!
-
-## License
-
-Free to use and modify.
