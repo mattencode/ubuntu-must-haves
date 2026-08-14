@@ -689,6 +689,7 @@
                 <h1>Ubuntu <span>App Installer</span></h1>
             </div>
             <p class="tagline">Select your apps, get a ready-to-run install script.</p>
+            <p class="tagline" style="font-size:0.9rem;">Tested for Ubuntu 22.04 / 24.04 / 26.04 LTS &mdash; third-party repos use the deb822 <code>.sources</code> format.</p>
             <div class="stats-bar">
                 <div class="stat"><span class="stat-dot apt"></span> apt = native packages</div>
                 <div class="stat"><span class="stat-dot snap"></span> snap = sandboxed</div>
@@ -715,7 +716,7 @@
                             <div class="app-info">
                                 <div class="app-name">Google Chrome</div>
                                 <div class="app-description">Fast, secure browser from Google with sync</div>
-                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds Google repository via extrepo">⚠</span></div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Vendor .deb; the package adds Google's own APT source">⚠</span></div>
                             </div>
                         </div>
                         <div class="app-item" data-app="firefox" data-method="apt" data-name="Firefox">
@@ -933,7 +934,7 @@
                             
                             <div class="app-info">
                                 <div class="app-name">Node.js LTS</div>
-                                <div class="app-description">JavaScript runtime for server-side apps</div>
+                                <div class="app-description">JavaScript runtime — Node 24 LTS via NodeSource</div>
                                 <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds NodeSource repository">⚠</span></div>
                             </div>
                         </div>
@@ -992,7 +993,7 @@
                             <div class="app-info">
                                 <div class="app-name">Zoom</div>
                                 <div class="app-description">Video conferencing and meetings</div>
-                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds Zoom official repository">⚠</span></div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Direct vendor .deb - no APT repo, Zoom updates itself">⚠</span></div>
                             </div>
                         </div>
                         <div class="app-item" data-app="signal" data-method="flatpak" data-name="Signal">
@@ -1002,6 +1003,15 @@
                                 <div class="app-name">Signal</div>
                                 <div class="app-description">Encrypted messaging for privacy</div>
                                 <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
+                            </div>
+                        </div>
+                        <div class="app-item" data-app="element" data-method="repo" data-name="Element">
+                            <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+                            
+                            <div class="app-info">
+                                <div class="app-name">Element</div>
+                                <div class="app-description">Matrix client for encrypted chat and calls</div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds the official element.io repository">⚠</span></div>
                             </div>
                         </div>
                     </div>
@@ -1071,13 +1081,13 @@
                                 <div class="app-meta"><span class="app-method apt">apt</span></div>
                             </div>
                         </div>
-                        <div class="app-item" data-app="syncthing" data-method="apt" data-name="Syncthing">
+                        <div class="app-item" data-app="localsend" data-method="flatpak" data-name="LocalSend">
                             <div class="app-checkbox"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
                             
                             <div class="app-info">
-                                <div class="app-name">Syncthing</div>
-                                <div class="app-description">Peer-to-peer file synchronization</div>
-                                <div class="app-meta"><span class="app-method apt">apt</span></div>
+                                <div class="app-name">LocalSend</div>
+                                <div class="app-description">Send files to nearby devices over the LAN</div>
+                                <div class="app-meta"><span class="app-method flatpak">flatpak</span></div>
                             </div>
                         </div>
                     </div>
@@ -1099,7 +1109,7 @@
                             <div class="app-info">
                                 <div class="app-name">Steam</div>
                                 <div class="app-description">Gaming platform with Proton for Windows games</div>
-                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Adds i386 architecture for 32-bit support">⚠</span></div>
+                                <div class="app-meta"><span class="app-method repo">repo</span><span class="app-warning" title="Enables Ubuntu multiverse and the i386 architecture">⚠</span></div>
                             </div>
                         </div>
                         <div class="app-item" data-app="lutris" data-method="flatpak" data-name="Lutris">
@@ -1147,7 +1157,7 @@
                     <div class="warning-box hidden" id="repo-warning">
                         <span class="warning-icon">⚠️</span>
                         <div>
-                            <strong>Third-party repositories will be added:</strong>
+                            <strong>External sources and system changes:</strong>
                             <ul class="repo-list" id="repo-list"></ul>
                         </div>
                     </div>
@@ -1189,15 +1199,13 @@
             // Browsers
             'google-chrome': {
                 method: 'repo',
-                setup: `# Install Google Chrome
-sudo apt install -y ca-certificates curl extrepo
-sudo sed -i 's/^# - non-free$/- non-free/' /etc/extrepo/config.yaml 2>/dev/null || true
-sudo extrepo enable google_chrome
-sudo apt update
-sudo apt install -y google-chrome-stable
-sudo rm -f /etc/apt/sources.list.d/google-chrome*.list`,
+                setup: `# Install Google Chrome (official vendor package, amd64 only)
+sudo apt install -y ca-certificates curl
+curl -fsSL -o /tmp/google-chrome-stable_current_amd64.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install -y /tmp/google-chrome-stable_current_amd64.deb
+rm -f /tmp/google-chrome-stable_current_amd64.deb`,
                 name: 'Google Chrome',
-                repoInfo: 'Google Chrome repository via extrepo',
+                repoInfo: 'Google package adds its own APT source on install (auto-updates via apt)',
                 repoUrl: 'dl.google.com/linux/chrome'
             },
             'firefox': {
@@ -1207,9 +1215,11 @@ sudo rm -f /etc/apt/sources.list.d/google-chrome*.list`,
             },
             'brave': {
                 method: 'repo',
-                setup: `# Install Brave Browser
+                setup: `# Install Brave Browser (official keyring + official deb822 source file)
+sudo apt install -y curl ca-certificates
 sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+sudo curl -fsSLo /etc/apt/sources.list.d/brave-browser-release.sources https://brave-browser-apt-release.s3.brave.com/brave-browser.sources
+sudo rm -f /etc/apt/sources.list.d/brave-browser-release.list
 sudo apt update
 sudo apt install -y brave-browser`,
                 name: 'Brave',
@@ -1223,14 +1233,18 @@ sudo apt install -y brave-browser`,
             },
             'vivaldi': {
                 method: 'repo',
-                setup: `# Install Vivaldi
-wget -qO- https://repo.vivaldi.com/archive/linux_signing_key.pub | gpg --dearmor | sudo dd of=/usr/share/keyrings/vivaldi-browser.gpg
-echo "deb [signed-by=/usr/share/keyrings/vivaldi-browser.gpg] https://repo.vivaldi.com/archive/deb/ stable main" | sudo tee /etc/apt/sources.list.d/vivaldi-archive.list
+                setup: `# Install Vivaldi (stable channel key + deb822 source)
+sudo apt install -y curl gpg ca-certificates
+curl -fsSL https://repo.vivaldi.com/stable/linux_signing_key.pub | sudo gpg --dearmor --yes -o /usr/share/keyrings/vivaldi-browser.gpg
+printf '%s\\n' 'Types: deb' 'URIs: https://repo.vivaldi.com/stable/deb/' 'Suites: stable' 'Components: main' "Architectures: $(dpkg --print-architecture)" 'Signed-By: /usr/share/keyrings/vivaldi-browser.gpg' | sudo tee /etc/apt/sources.list.d/vivaldi.sources > /dev/null
+printf '%s\\n' 'repo_add_once="false"' 'repo_reenable_on_distupgrade="false"' | sudo tee /etc/default/vivaldi > /dev/null
+sudo rm -f /etc/apt/sources.list.d/vivaldi-archive.list
 sudo apt update
-sudo apt install -y vivaldi-stable`,
+sudo apt install -y vivaldi-stable
+sudo rm -f /etc/apt/sources.list.d/vivaldi.list`,
                 name: 'Vivaldi',
-                repoInfo: 'Vivaldi Technologies repository',
-                repoUrl: 'repo.vivaldi.com'
+                repoInfo: 'Vivaldi Technologies repository (stable channel)',
+                repoUrl: 'repo.vivaldi.com/stable'
             },
 
             // Office
@@ -1315,7 +1329,8 @@ sudo apt install -y ca-certificates curl
 sudo install -m 0755 -d /etc/apt/keyrings
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "\${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list
+printf '%s\\n' 'Types: deb' 'URIs: https://download.docker.com/linux/ubuntu' "Suites: $(. /etc/os-release && echo "\${UBUNTU_CODENAME:-$VERSION_CODENAME}")" 'Components: stable' "Architectures: $(dpkg --print-architecture)" 'Signed-By: /etc/apt/keyrings/docker.asc' | sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null
+sudo rm -f /etc/apt/sources.list.d/docker.list
 sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker $USER`,
@@ -1325,12 +1340,17 @@ sudo usermod -aG docker $USER`,
             },
             'nodejs': {
                 method: 'repo',
-                setup: `# Install Node.js LTS
-curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+                setup: `# Install Node.js 24 LTS (no 'sudo -E' - sudo-rs on Ubuntu 25.10+ ignores it)
+sudo apt install -y curl gpg ca-certificates
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
+printf '%s\\n' 'Types: deb' 'URIs: https://deb.nodesource.com/node_24.x' 'Suites: nodistro' 'Components: main' "Architectures: $(dpkg --print-architecture)" 'Signed-By: /etc/apt/keyrings/nodesource.gpg' | sudo tee /etc/apt/sources.list.d/nodesource.sources > /dev/null
+sudo rm -f /etc/apt/sources.list.d/nodesource.list
+sudo apt update
 sudo apt install -y nodejs`,
                 name: 'Node.js LTS',
-                repoInfo: 'NodeSource repository (LTS)',
-                repoUrl: 'deb.nodesource.com'
+                repoInfo: 'NodeSource repository (Node.js 24 LTS, nodistro suite)',
+                repoUrl: 'deb.nodesource.com/node_24.x'
             },
             'python3-pip': {
                 method: 'apt',
@@ -1356,19 +1376,32 @@ sudo apt install -y nodejs`,
             },
             'zoom': {
                 method: 'repo',
-                setup: `# Install Zoom
-wget -qO- https://zoom.us/linux/download/pubkey | sudo gpg --dearmor -o /usr/share/keyrings/zoom-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/zoom-archive-keyring.gpg] https://mirror.zoom.us/linux/deb/stable main" | sudo tee /etc/apt/sources.list.d/zoom.list
-sudo apt update
-sudo apt install -y zoom`,
+                setup: `# Install Zoom (Zoom publishes no APT repository - official .deb, amd64 only)
+sudo apt install -y curl ca-certificates
+curl -fsSL -o /tmp/zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb
+sudo apt install -y /tmp/zoom_amd64.deb
+rm -f /tmp/zoom_amd64.deb`,
                 name: 'Zoom',
-                repoInfo: 'Zoom Video Communications repository',
-                repoUrl: 'mirror.zoom.us/linux'
+                repoInfo: 'Direct vendor package - no APT repo, Zoom updates itself in-app',
+                repoUrl: 'zoom.us/client/latest'
             },
             'signal': {
                 method: 'flatpak',
                 packages: ['org.signal.Signal'],
                 name: 'Signal'
+            },
+            'element': {
+                method: 'repo',
+                setup: `# Install Element (Matrix client) - official element.io repository
+sudo apt install -y curl ca-certificates
+sudo curl -fsSLo /usr/share/keyrings/element-io-archive-keyring.gpg https://packages.element.io/debian/element-io-archive-keyring.gpg
+printf '%s\\n' 'Types: deb' 'URIs: https://packages.element.io/debian/' 'Suites: default' 'Components: main' "Architectures: $(dpkg --print-architecture)" 'Signed-By: /usr/share/keyrings/element-io-archive-keyring.gpg' | sudo tee /etc/apt/sources.list.d/element-io.sources > /dev/null
+sudo rm -f /etc/apt/sources.list.d/element-io.list
+sudo apt update
+sudo apt install -y element-desktop`,
+                name: 'Element',
+                repoInfo: 'Element (New Vector) repository',
+                repoUrl: 'packages.element.io/debian'
             },
 
             // Utilities
@@ -1402,22 +1435,24 @@ sudo apt install -y zoom`,
                 packages: ['gnome-tweaks'],
                 name: 'GNOME Tweaks'
             },
-            'syncthing': {
-                method: 'apt',
-                packages: ['syncthing'],
-                name: 'Syncthing'
+            'localsend': {
+                method: 'flatpak',
+                packages: ['org.localsend.localsend_app'],
+                name: 'LocalSend'
             },
 
             // Gaming
             'steam': {
                 method: 'repo',
-                setup: `# Install Steam (with 32-bit library support)
+                setup: `# Install Steam (multiverse + 32-bit library support)
+sudo apt install -y software-properties-common
+sudo add-apt-repository -y multiverse
 sudo dpkg --add-architecture i386
 sudo apt update
-sudo apt install -y steam`,
+sudo apt install -y steam-installer steam-devices`,
                 name: 'Steam',
-                repoInfo: 'Adds i386 architecture for 32-bit support',
-                repoUrl: 'i386 multilib'
+                repoInfo: 'Enables multiverse + i386 architecture (package is steam-installer)',
+                repoUrl: 'Ubuntu multiverse + i386 multilib'
             },
             'lutris': {
                 method: 'flatpak',
@@ -1527,8 +1562,9 @@ sudo apt install -y steam`,
             if (repoApps.length > 0) {
                 warning.classList.remove('hidden');
                 const tooltips = {
-                    'extrepo': 'extrepo is a Debian/Ubuntu tool that manages external repositories safely. It handles GPG keys and sources.list entries from a curated list of third-party repos.',
-                    'NodeSource': 'NodeSource provides up-to-date Node.js binaries. The setup script adds their repository and GPG key to your system.'
+                    'NodeSource': 'NodeSource provides up-to-date Node.js binaries. A deb822 .sources file plus their GPG key is added to your system.',
+                    'deb822': 'deb822 is the modern APT source format (/etc/apt/sources.list.d/*.sources). APT 3.x marks the old one-line .list format as deprecated.',
+                    'multiverse': 'multiverse is the Ubuntu component for proprietary software that Canonical does not support directly.'
                 };
                 repoList.innerHTML = repoApps.map(app => {
                     let info = app.repoInfo;
@@ -1594,7 +1630,7 @@ NC='\\033[0m'
 print_status() { echo -e "\${GREEN}[✓]\${NC} \$1"; }
 print_error() { echo -e "\${RED}[✗]\${NC} \$1"; }
 print_info() { echo -e "\${YELLOW}[i]\${NC} \$1"; }
-print_cmd() { echo -e "\${CYAN}    \\$\${NC} \$1"; }
+print_cmd() { echo -en "\${CYAN}    \\$\${NC} "; printf '%s\\n' "\$1"; }
 
 # Execute command (or just print in dry run mode)
 run_cmd() {
@@ -1624,6 +1660,26 @@ if [ "\$EUID" -eq 0 ]; then
     exit 1
 fi
 
+# Detect distribution (third-party repos below assume Ubuntu/Debian + apt)
+DISTRO_ID=""
+DISTRO_VERSION=""
+DISTRO_CODENAME=""
+if [ -r /etc/os-release ]; then
+    DISTRO_ID=\$(. /etc/os-release && echo "\${ID:-unknown}")
+    DISTRO_VERSION=\$(. /etc/os-release && echo "\${VERSION_ID:-unknown}")
+    DISTRO_CODENAME=\$(. /etc/os-release && echo "\${UBUNTU_CODENAME:-\${VERSION_CODENAME:-unknown}}")
+fi
+if [ "\$DISTRO_ID" != "ubuntu" ]; then
+    print_info "Detected '\$DISTRO_ID' instead of Ubuntu - vendor repositories may not have matching packages"
+else
+    print_status "Ubuntu \$DISTRO_VERSION (\$DISTRO_CODENAME) detected"
+fi
+
+# Ubuntu 25.10+ ships sudo-rs, which ignores 'sudo -E'. No command below relies on it.
+if sudo --version 2>/dev/null | head -n1 | grep -qi "sudo-rs"; then
+    print_info "sudo-rs detected - environment is not preserved across sudo (not needed here)"
+fi
+
 echo ""
 echo "╔════════════════════════════════════════════════════════════════════╗"
 echo "║                        Ubuntu App Installer                        ║"
@@ -1638,7 +1694,7 @@ fi
 
             // Add repo warnings
             if (repoApps.length > 0) {
-                script += `# Third-party repositories that will be added:
+                script += `# External sources and system changes:
 ${repoApps.map(a => `#   - ${a.name}: ${a.repoInfo}`).join('\n')}
 echo ""
 
@@ -1921,14 +1977,16 @@ fi
                 
                 script += `# ${app.name}
 # Repository: ${app.repoInfo} (${app.repoUrl})
-if ${checkCmd}; then
+if ( ${checkCmd} ); then
     print_info "${app.name} is already installed, skipping"
     skipped_apps+="${app.name}\\n"
 else
     print_info "Installing ${app.name}..."
-    print_info "Adding repository: ${app.repoUrl}"
+    print_info "Source: ${app.repoUrl}"
+    set +e
 ${installLines}
-    if [ "\$DRY_RUN" = "false" ] && ${checkCmd}; then
+    set -e
+    if [ "\$DRY_RUN" = "false" ] && ( ${checkCmd} ); then
         print_status "${app.name} installed successfully"
         installed_apps+="${app.name}\\n"
     elif [ "\$DRY_RUN" = "true" ]; then
@@ -2027,14 +2085,15 @@ echo "Launch installed apps from your application menu."
                 'slack': 'snap_installed slack',
                 'zoom': 'command_exists zoom',
                 'signal': 'flatpak_installed org.signal.Signal',
+                'element': 'command_exists element-desktop',
                 'remmina': 'command_exists remmina',
                 'flameshot': 'command_exists flameshot',
                 'timeshift': 'command_exists timeshift',
                 'htop': 'command_exists htop',
                 'fastfetch': 'command_exists fastfetch',
                 'gnome-tweaks': 'command_exists gnome-tweaks',
-                'syncthing': 'command_exists syncthing',
-                'steam': 'command_exists steam',
+                'localsend': 'flatpak_installed org.localsend.localsend_app',
+                'steam': 'command_exists steam || dpkg_installed steam-installer',
                 'lutris': 'flatpak_installed net.lutris.Lutris',
                 'heroic': 'flatpak_installed com.heroicgameslauncher.hgl'
             };
